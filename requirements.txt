@@ -1,0 +1,13 @@
+# Core dependencies
+discord.py
+python-dotenv
+
+# LLM dependencies
+langchain
+langchain-community
+llama-cpp-python
+
+# Utilities
+numpy
+tqdm
+requests

@@ -3,11 +3,6 @@ discord.py
 python-dotenv
 
 # LLM dependencies
-langchain
-langchain-community
-llama-cpp-python
+langchain_community
+langchain-ollama
 
-# Utilities
-numpy
-tqdm
-requests

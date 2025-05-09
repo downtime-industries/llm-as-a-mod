@@ -1,69 +1,75 @@
-# Discord Code of Conduct Bot
+# Discord Code of Conduct Moderation Bot
 
-A Discord bot that uses an LLM to automatically evaluate Code of Conduct violations.
+A Discord bot that uses LLMs to automatically evaluate Code of Conduct violations with minimal intervention.
 
 ## Features
 
-- Responds to ban requests by evaluating messages against the Code of Conduct
-- Uses an LLM (via Groq API) to analyze message context
-- Keeps the model warm in memory for efficient processing on Raspberry Pi
+- Responds to message reports with AI-powered moderation decisions
+- Focuses only on extreme violations, avoiding false positives
+- Evaluates messages in context for better decisions
+- Uses Ollama to run models locally with minimal setup
 - Returns decision with action recommendation and reasoning
 
 ## Setup
 
-1. Clone this repository
-2. Install dependencies:
+1. **Install Dependencies**
    ```
    pip install -r requirements.txt
    ```
-3. Create a `.env` file from the template:
+
+2. **Install Ollama**
+   
+   Follow the instructions at [Ollama.com](https://ollama.com/) to install Ollama for your platform.
+
+3. **Pull the Gemma Model**
    ```
-   cp .env.template .env
-   ```
-4. Edit the `.env` file with your Discord token:
-   ```
-   DISCORD_TOKEN=your_discord_token_here
+   ollama pull gemma:3-4b-it-qat
    ```
 
-### Getting API Keys
+4. **Set Up Environment Variables**
+   
+   Create a `.env` file with your Discord token:
+   ```
+   DISCORD_TOKEN=your_bot_token_here
+   ```
 
-- **Discord Token**: Create a bot application in the [Discord Developer Portal](https://discord.com/developers/applications) and get your token from the Bot tab.
-
-### Adding the Bot to Your Server
-
-1. Go to the Discord Developer Portal
-2. Select your application
-3. Go to OAuth2 > URL Generator
-4. Under "Scopes" select "bot"
-5. Under "Bot Permissions" select appropriate permissions (message reading, sending messages, banning members)
-6. Use the generated URL to add the bot to your server
-
-## Usage
-
-1. Run the bot:
+5. **Run the Bot**
    ```
    python bot.py
    ```
 
-2. In Discord, use the `!ban` command while replying to a message:
+## Usage
+
+1. **Start the Bot**
    ```
-   !ban @username
+   python bot.py
    ```
 
-The bot will analyze the message and surrounding context using the Code of Conduct template and return a recommendation.
+2. **Reporting Messages**
+   - Reply to the message you want to check
+   - Use the command: `!remove @username`
+
+The bot will analyze the message and surrounding context using the configured Code of Conduct prompt and return a recommendation.
 
 ## Code of Conduct Decisions
 
-The bot will recommend one of three actions:
-- **None**: No violation detected
-- **Temp-mute**: Minor violation that warrants a temporary mute
-- **Temp-ban**: Serious violation that warrants a temporary ban
+The bot is configured to be minimal-intervention, focusing only on extreme violations:
 
-Each decision includes a reason explaining the judgment.
+- **None**: No violation detected (default for most cases)
+- **Temp-mute**: For clear spam or commercial promotion
+- **Temp-ban**: For explicit threats, harassment, or discriminatory attacks
 
-## Running on Raspberry Pi
+## Customization
 
-This bot is designed to be lightweight and efficient on a Raspberry Pi:
-- The model is kept warm in memory to reduce startup time
-- The Qwen-3 model can run efficiently on limited hardware
-- The bot uses async functionality for responsive performance
+The Code of Conduct prompt can be modified in `prompts/code_of_conduct.txt` to adjust the moderation policy.
+
+## Requirements
+
+- Python 3.8+
+- Discord.py
+- Ollama (running locally)
+- Internet connection for Discord API
+
+## Advanced Configuration
+
+You can modify parameters like temperature and context window in the `bot.py` file to adjust the model behavior.

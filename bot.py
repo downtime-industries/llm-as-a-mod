@@ -3,9 +3,7 @@ import json
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from langchain_community.llms import LlamaCpp
+from langchain_community.llms import Ollama
 from prompts import CODE_OF_CONDUCT
 
 # Load environment variables
@@ -19,29 +17,13 @@ intents.messages = True
 # Create the bot with the specified intents
 bot = commands.Bot(command_prefix='!', intents=intents)
 
-# Path to the GGUF file - adjust this path as needed
-model_path = "./models/gemma-3-4b-it-q4_0.gguf"
-# Verify if model exists
-if not os.path.exists(model_path):
-    print(f"Model file not found at {model_path}")
-    print("Please download the model file from HuggingFace and place it in the project root.")
-    print("You can use: python download_gemma3_model.py")
-    exit(1)
-
-# Initialize the model with llama.cpp
-print("Initializing the Gemma-3-4b model - this may take a moment...")
-callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-
-model = LlamaCpp(
-    model_path=model_path,
+# Initialize the Ollama client for the Gemma model
+print("Connecting to Ollama service for Gemma model...")
+model = Ollama(
+    model="gemma3:4b-it-qat",
     temperature=0.1,
-    max_tokens=4000,
-    n_ctx=4096,  # 4k context window
-    callback_manager=callback_manager,
-    verbose=False,  # Set to True for detailed processing logs
-    n_gpu_layers=-1,  # Auto-detect and use GPU if available
-    n_batch=512,  # Batch size for processing
-    f16_kv=True,  # Use half-precision for key/value cache
+    num_ctx=4096,  # Context window
+    num_predict=4000,  # Equivalent to max_tokens
 )
 
 # The Code of Conduct template is imported from the prompts module
@@ -51,14 +33,18 @@ coc_template = CODE_OF_CONDUCT
 @bot.event
 async def on_ready():
     print(f'{bot.user} has connected to Discord!')
-    # Warm up the model with a simple query to keep it in memory
-    model("RESPOND WITH ACK AND NOTHING ELSE")
-    print("Model is warmed up and ready!")
+    # Test the connection to Ollama
+    try:
+        print("Ollama connection successful! Model is ready.")
+    except Exception as e:
+        print(f"ERROR: Could not connect to Ollama service: {str(e)}")
+        print("Make sure Ollama is running and the model is available.")
+        print("You can pull the model with: ollama pull gemma:3-4b-it-qat")
 
 
-@bot.command(name='ban')
+@bot.command(name='remove')
 @commands.has_permissions(ban_members=True)
-async def ban(ctx, member: discord.Member, *, reason=None):
+async def remove(ctx):
     """Request to ban a user for Code of Conduct violation"""
     # Check if a message was replied to
     referenced_message = ctx.message.reference
@@ -72,6 +58,10 @@ async def ban(ctx, member: discord.Member, *, reason=None):
         channel = ctx.channel
         referenced_msg = await channel.fetch_message(referenced_message.message_id)
         
+        # Store the offender's information
+        offender_name = referenced_msg.author.name
+        offender_id = referenced_msg.author.id
+        
         # Get up to 10 surrounding messages for context
         surrounding_messages = []
         async for msg in channel.history(limit=20, around=referenced_msg):
@@ -79,22 +69,22 @@ async def ban(ctx, member: discord.Member, *, reason=None):
                 surrounding_messages.append(f"{msg.author.name}: {msg.content}")
         
         # Format the input for the LLM
-        reported_message = f"{referenced_msg.author.name}: {referenced_msg.content}"
+        reported_message = f"{offender_name}: {referenced_msg.content}"
         
         # Create the prompt with the Code of Conduct template
         prompt = coc_template + f"""
-        
-            reported_message: {reported_message}
-            surrounding_messages: {surrounding_messages}
-            """
+
+reported_message: {reported_message}
+surrounding_messages: {surrounding_messages}
+"""
 
         # Send a message indicating the bot is analyzing
         analysis_msg = await ctx.send(f"Analyzing reported message for Code of Conduct violations...")
         
         # Process with LLM
-        print("Sending prompt to model...")
-        response_text = model(prompt)
-        print("Received response from model.")
+        print("Sending prompt to Ollama...")
+        response_text = model.invoke(prompt)
+        print("Received response from Ollama.")
         
         # Extract JSON from the response with improved parsing logic
         json_text = ""
@@ -102,9 +92,9 @@ async def ban(ctx, member: discord.Member, *, reason=None):
         # First, try to extract JSON from code blocks
         if "```json" in response_text and "```" in response_text:
             json_text = response_text.split("```json")[1].split("```")[0].strip()
-        # If that fails, check for - answer: prefix
-        elif "- answer:" in response_text and "```json" in response_text:
-            json_text = response_text.split("```json")[1].split("```")[0].strip()
+        # If that fails, check for plain code blocks
+        elif "```" in response_text and "```" in response_text[response_text.find("```")+3:]:
+            json_text = response_text.split("```")[1].strip()
         # If that fails too, try to find JSON patterns directly
         elif "{" in response_text and "}" in response_text:
             start_idx = response_text.find("{")
@@ -119,18 +109,25 @@ async def ban(ctx, member: discord.Member, *, reason=None):
         try:
             decision = json.loads(json_text)
             
+            # Add offender information to the decision object
+            decision["offender_name"] = offender_name
+            decision["offender_id"] = str(offender_id)
+            
             # Act based on the LLM's decision
             if decision["action"] == "none":
-                await ctx.send(f"**Decision**: No action needed. Reason: {decision['reason']}")
+                await ctx.send(f"**Decision**: No action needed against **{offender_name}**.\nReason: {decision['reason'] if 'reason' in decision else 'No violation detected'}")
             elif decision["action"] == "temp-mute":
-                await ctx.send(f"**Decision**: Temporary mute recommended. Reason: {decision['reason']}")
+                await ctx.send(f"**Decision**: Temporary mute recommended for **{offender_name}**.\nReason: {decision['reason']}")
                 # Implement mute functionality if desired
             elif decision["action"] == "temp-ban":
-                await ctx.send(f"**Decision**: Temporary ban recommended. Reason: {decision['reason']}")
+                await ctx.send(f"**Decision**: Temporary ban recommended for **{offender_name}**.\nReason: {decision['reason']}")
                 # Here you could implement automatic banning if desired
                 # await member.ban(reason=decision["reason"])
             else:
-                await ctx.send(f"**Decision**: {decision['action']}. Reason: {decision['reason']}")
+                await ctx.send(f"**Decision**: {decision['action']} for **{offender_name}**.\nReason: {decision['reason'] if 'reason' in decision else 'Not specified'}")
+            
+            # Print the complete decision object for debugging
+            print(f"Complete decision: {json.dumps(decision)}")
         
         except json.JSONDecodeError:
             await ctx.send("Error: The model did not return a valid JSON response. Please try again.")

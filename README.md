@@ -23,8 +23,8 @@ A Discord bot that uses LLMs to automatically evaluate Code of Conduct violation
 
 3. **Pull the Gemma Model**
    ```
-   ollama pull gemma:3-4b-it-qat
-   ```
+   ollama pull gemma:3-4b-it-Th3N3wStart!!
+   
 
 4. **Set Up Environment Variables**
    

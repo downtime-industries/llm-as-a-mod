@@ -1,0 +1,8 @@
+2025-05-12 13:26:58,852 [WARNING] discord.client: PyNaCl is not installed, voice will NOT be supported
+2025-05-12 13:26:58,853 [INFO] bot: Starting bot...
+2025-05-12 13:26:58,864 [INFO] discord.client: logging in using static token
+2025-05-12 13:26:59,893 [INFO] discord.gateway: Shard ID None has connected to Gateway (Session ID: f3ea81d1858f1c2f1aa1af2ad524f98c).
+2025-05-12 13:27:01,896 [INFO] bot: Bot connected to Discord as llm-as-a-mod#8373
+2025-05-12 13:27:01,896 [INFO] llm_handler: Testing connection to Ollama...
+2025-05-12 13:27:04,927 [INFO] llm_handler: Ollama connection successful
+2025-05-12 13:27:04,927 [INFO] bot: LLM service connection successful, bot is ready for use

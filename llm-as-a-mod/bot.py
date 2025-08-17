@@ -7,7 +7,6 @@ language model through Ollama.
 
 import logging
 import sys
-from typing import Optional
 
 import discord
 from discord.ext import commands

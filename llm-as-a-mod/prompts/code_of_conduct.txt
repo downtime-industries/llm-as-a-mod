@@ -51,5 +51,3 @@ commercial promotion. Use "none" for everything else.
 
 Return your decision below in JSON only. Do not generate examples. End your 
 response after the JSON object. Do not continue.
-
-reported_message: "I hate everything and everyone. The mods suck and I'm going to DoS this server."

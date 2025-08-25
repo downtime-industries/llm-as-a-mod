@@ -1,9 +1,12 @@
 """
 Discord command handlers for the moderation bot.
+
+This module is the primary command cog (restored from moderation_commands.py).
 """
 
 import logging
 from typing import List, Dict, Any
+import asyncio
 
 import discord
 from discord.ext import commands
@@ -28,7 +31,6 @@ class ModerationCommands(commands.Cog):
         Evaluate a message for Code of Conduct violations.
         
         This command must be used as a reply to the message being evaluated.
-        Only users with ban permissions can use this command.
         """
         # Check if message is a reply
         if not ctx.message.reference:
@@ -80,7 +82,12 @@ class ModerationCommands(commands.Cog):
         await ctx.send("Analyzing reported message for Code of Conduct violations...")
         
         # Analyze with LLM
-        decision = llm_handler.analyze_message(prompt)
+        # llm_handler.analyze_message is blocking (uses requests). Run it in a thread
+        try:
+            decision = await asyncio.to_thread(llm_handler.analyze_message, prompt)
+        except Exception as e:
+            logger.exception("LLM analysis failed")
+            raise
         
         # Add offender information
         decision["offender_name"] = offender_name
@@ -148,7 +155,6 @@ class ModerationCommands(commands.Cog):
         if action == "none":
             await ctx.send(
                 f"**Decision**: No action needed against **{offender_name}**.\n"
-                f"Reason: {reason}"
             )
         elif action == "temp-mute":
             await ctx.send(
@@ -169,6 +175,7 @@ class ModerationCommands(commands.Cog):
             )
 
 
+# keep the simple extension-style setup function for backwards compatibility
 def setup(bot: commands.Bot):
     """Register cogs with the bot."""
     bot.add_cog(ModerationCommands(bot))

@@ -17,26 +17,48 @@ A Discord bot that uses LLMs to automatically evaluate Code of Conduct violation
    pip install -r requirements.txt
    ```
 
-2. **Install Ollama**
-   
-   Follow the instructions at [Ollama.com](https://ollama.com/) to install Ollama for your platform.
+2. **Install Ollama (local)**
+   Follow the instructions at https://ollama.com/ to install Ollama for your platform.
 
-3. **Pull the Gemma Model**
+3. **(Optional) Pull a model locally**
+   If you're running Ollama locally you can pull a model you plan to use:
+   ```bash
+   ollama pull gemma3:12b-it-qat
    ```
-   ollama pull gemma:3-4b-it-Th3N3wStart!!
-   
 
 4. **Set Up Environment Variables**
-   
-   Create a `.env` file with your Discord token:
-   ```
-   DISCORD_TOKEN=your_bot_token_here
+
+   Create a `.env` file in the repository root. At minimum set your Discord token and, optionally, an Ollama base URL and log level:
+
+   ```ini
+   DISCORD_TOKEN=your_discord_bot_token_here
+   # Optional: point to a remote or local Ollama server (default: http://localhost:11434)
+   OLLAMA_BASE_URL=http://localhost:11434
+   # Optional: DEBUG, INFO, WARNING, ERROR
+   LOG_LEVEL=INFO
    ```
 
+   - To use a remote Ollama instance, set `OLLAMA_BASE_URL` to the remote host (e.g. `http://someserver:11434`). Ensure that host is reachable and the required model is available on that server.
+
 5. **Run the Bot**
-   ```
+
+   Recommended: run from the `llm-as-a-mod` directory:
+
+   ```bash
+   cd llm-as-a-mod
    python bot.py
    ```
+
+   Or run from repository root:
+   ```bash
+   python llm-as-a-mod/bot.py
+   ```
+
+## Logging and debugging
+
+- The bot reads `LOG_LEVEL` from `.env` (defaults to `INFO`). Set `LOG_LEVEL=DEBUG` for verbose logs.
+- Logs are written to `bot.log` in the working directory and also to stdout.
+- The bot will report the configured `OLLAMA_BASE_URL` on startup and test the connection. If you point to a remote server, ensure that server has the expected model installed and is reachable.
 
 ## Usage
 

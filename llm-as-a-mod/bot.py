@@ -11,13 +11,15 @@ import sys
 import discord
 from discord.ext import commands
 
-from config import bot_config
+from config import bot_config, model_config
 from llm_handler import llm_handler
 from commands import ModerationCommands
 
 # Configure logging
+_level_name = (getattr(bot_config, 'log_level', 'INFO') if 'bot_config' in globals() else 'INFO')
+_level = getattr(logging, _level_name.upper(), logging.INFO)
 logging.basicConfig(
-    level=logging.INFO,
+    level=_level,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
@@ -65,12 +67,44 @@ class ModerationBot:
             
             # Test LLM connection
             if not llm_handler.test_connection():
-                logger.error("Failed to connect to Ollama LLM service")
-                logger.error("Make sure Ollama is running and the model is available")
-                logger.error("You can pull the model with: ollama pull gemma:3-4b-it-qat")
+                logger.error(f"Failed to connect to Ollama LLM service at {model_config.base_url}")
+                logger.error("Make sure Ollama is running and accessible")
+                if "localhost" in model_config.base_url:
+                    logger.error("You can pull the model with: ollama pull gemma:3-4b-it-qat")
+                else:
+                    logger.error(f"Check that the external server {model_config.base_url} is accessible")
+                    logger.error("and has the required model available")
             else:
-                logger.info("LLM service connection successful, bot is ready for use")
-                
+                logger.info(f"LLM service connection successful at {model_config.base_url}, bot is ready for use")
+
+                # Log registered commands at startup for debugging
+                try:
+                    registered = [c.name for c in self.bot.commands]
+                    logger.debug(f"Registered commands at startup: {registered}")
+                except Exception:
+                    logger.exception("Failed to list registered commands at startup")
+
+                # Ensure the moderation cog is present (add asynchronously)
+                if "ModerationCommands" not in self.bot.cogs:
+                    try:
+                        import inspect
+                        logger.debug(f"ModerationCommands class object: {ModerationCommands}")
+                        remove_attr = getattr(ModerationCommands, 'remove', None)
+                        logger.debug(f"ModerationCommands.remove attribute: {remove_attr!r}")
+                        logger.debug(f"isfunction(remove): {inspect.isfunction(remove_attr)}")
+                        if hasattr(remove_attr, 'callback'):
+                            logger.debug(f"remove is a Command, callback={remove_attr.callback}")
+                    except Exception:
+                        logger.exception("Failed to introspect ModerationCommands in on_ready")
+
+                    try:
+                        await self.bot.add_cog(ModerationCommands(self.bot))
+                        logger.info("ModerationCommands cog added in on_ready")
+                        logger.debug(f"Cogs registered at on_ready: {list(self.bot.cogs.keys())}")
+                        logger.debug(f"Commands registered at on_ready: {[c.name for c in self.bot.commands]}")
+                    except Exception:
+                        logger.exception("Failed to add ModerationCommands in on_ready")
+        
         @self.bot.event
         async def on_command_error(ctx: commands.Context, error: Exception):
             """Handle command errors."""
@@ -88,12 +122,40 @@ class ModerationBot:
                 await ctx.send(f"An error occurred: {error_details}")
                 logger.error(f"Command error: {type(error).__name__}: {error}", exc_info=True)
         
+        @self.bot.event
+        async def on_message(message: discord.Message):
+            """Log incoming messages for debugging and ensure command processing
+
+            This helps diagnose why commands like `!remove` may not be recognized
+            (for example when message content intent is missing or another
+            on_message handler failed to call process_commands).
+            """
+            # Ignore bot messages
+            if message.author.bot:
+                return
+
+            # Basic debug information
+            channel_name = getattr(message.channel, "name", "DM")
+            logger.debug(
+                f"on_message from {message.author} (id={message.author.id}) in {channel_name}: content={message.content!r} reference={getattr(message, 'reference', None)}"
+            )
+
+            # Log registered commands and prefix to help debug registration issues
+            try:
+                registered = [c.name for c in self.bot.commands]
+                logger.debug(f"Registered commands: {registered}, command_prefix={bot_config.command_prefix!r}")
+            except Exception:
+                logger.debug("Failed to enumerate registered commands", exc_info=True)
+
+            # Ensure commands are processed by the commands extension
+            try:
+                await self.bot.process_commands(message)
+            except Exception as e:
+                logger.exception(f"Error while processing commands: {e}")
+        
     def run(self):
         """Run the bot."""
         logger.info("Starting bot...")
-        
-        # Add command cogs
-        self.bot.add_cog(ModerationCommands(self.bot))
         
         # Connect to Discord
         self.bot.run(bot_config.token)

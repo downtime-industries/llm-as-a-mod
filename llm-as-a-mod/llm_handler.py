@@ -23,8 +23,10 @@ class LLMHandler:
     def _initialize_model(self) -> Ollama:
         """Initialize and return the LLM model."""
         logger.info(f"Initializing Ollama model: {model_config.name}")
+        logger.info(f"Using Ollama base URL: {model_config.base_url}")
         return Ollama(
             model=model_config.name,
+            base_url=model_config.base_url,
             temperature=model_config.temperature,
             num_ctx=model_config.num_ctx,
             num_predict=model_config.num_predict,
